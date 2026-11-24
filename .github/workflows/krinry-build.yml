@@ -69,6 +69,26 @@ jobs:
           ls -lh app/build/outputs/apk/release/
           unzip -l app/build/outputs/apk/release/app-release.apk | grep -E "\.so$" || echo "⚠️ No SO in APK"
 
+      - name: Apply dex2c (convert methods to Native)
+        continue-on-error: true
+        run: |
+          set -e
+          echo "=== Downloading dex2c ==="
+          wget -q https://github.com/Anon4You/dex2c/releases/latest/download/dex2c.jar -O dex2c.jar
+          
+          echo "=== Running dex2c (BEFORE dpt-shell) ==="
+          java -jar dex2c.jar \
+            -a app/build/outputs/apk/release/app-release.apk \
+            -o app/build/outputs/apk/release/app-dex2c.apk \
+            -f dex2c-filter.txt || true
+          
+          if [ -f app/build/outputs/apk/release/app-dex2c.apk ]; then
+            mv app/build/outputs/apk/release/app-dex2c.apk app/build/outputs/apk/release/app-release.apk
+            echo "✓ dex2c applied"
+          else
+            echo "::warning::dex2c produced no output — continuing with original APK"
+          fi
+
       - name: Apply dpt-shell (DEX encryption)
         continue-on-error: true
         run: |
@@ -93,24 +113,7 @@ jobs:
             mv "$DPT_OUT" "$APK_IN"
             echo "✓ dpt-shell applied"
           else
-            echo "⚠️ dpt-shell output not found"
-          fi
-
-      - name: Apply dex2c (convert methods to Native)
-        continue-on-error: true
-        run: |
-          set -e
-          wget -q https://github.com/Anon4You/dex2c/releases/latest/download/dex2c.jar -O dex2c.jar
-          java -jar dex2c.jar \
-            -a app/build/outputs/apk/release/app-release.apk \
-            -o app/build/outputs/apk/release/app-dex2c.apk \
-            -f dex2c-filter.txt || true
-          
-          if [ -f app/build/outputs/apk/release/app-dex2c.apk ]; then
-            mv app/build/outputs/apk/release/app-dex2c.apk app/build/outputs/apk/release/app-release.apk
-            echo "✓ dex2c applied"
-          else
-            echo "⚠️ dex2c output not found"
+            echo "::warning::dpt-shell produced no output"
           fi
 
       - name: Re-sign with our keystore
